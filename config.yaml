@@ -1,5 +1,5 @@
 ui:
-  url: http://localhost:3000
+  url: http://192.168.0.114:3000
 swaggerServer:
   enable: true
 sqLite:

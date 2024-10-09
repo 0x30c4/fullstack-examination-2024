@@ -1,53 +1,107 @@
+
 <template>
   <div class="todo-main">
-    <h1>TODOリスト</h1>
+    <h1>TODO List</h1>
     <div v-if="statusMessage" class="status-message">{{ statusMessage }}</div>
     <div class="input-group">
-      <input v-model="newTask" placeholder="新しいタスクを入力" @keyup.enter="addTodo">
-      <button @click="addTodo">追加</button>
+      <input v-model="newTask" placeholder="Enter new task" @keyup.enter="addTodo">
+      <select v-model="newTaskPriority">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+      <button @click="addTodo">Add</button>
     </div>
-    <div v-if="todos.length > 0">
-      <div v-for="todo in todos" :key="todo.ID" class="todo-item">
-        <input
-v-if="todo.isEditing" v-model="todo.Task" class="edit-input" @blur="editTodo(todo)"
-          @keyup.enter="editTodo(todo)">
-        <span v-else :class="{ 'done-task': todo.Status === 'done' }" @click="enableEdit(todo)">{{ todo.Task
-          }}</span>
-        <div class="buttons">
-          <button :class="{ 'done': todo.Status === 'done' }" @click="updateStatus(todo)">
-            ✔️
-          </button>
-          <button class="delete-button" @click="deleteTodo(todo.ID)">🗑️</button>
+
+    <!-- Add search fields -->
+    <div class="search-group">
+      <input v-model="searchTask" placeholder="Search by task name" @input="searchTodos">
+      <select v-model="searchStatus" @change="searchTodos">
+        <option value="">Select</option>
+        <option value="created">Created</option>
+        <option value="processing">On Going</option>
+        <option value="done">Done</option>
+      </select>
+    </div>
+
+    <div class="todo-columns">
+      <div class="todo-column">
+        <h2>On Going Tasks</h2>
+        <div v-if="ongoingTodos.length > 0">
+          <div v-for="todo in ongoingTodos" :key="todo.ID" class="todo-item">
+            <input
+              v-if="todo.isEditing"
+              v-model="todo.Task"
+              class="edit-input"
+              @blur="editTodo(todo)"
+              @keyup.enter="editTodo(todo)"
+            >
+            <span v-else :class="{ 'done-task': todo.Status === 'done' }" @click="enableEdit(todo)">
+              {{ todo.Task }}
+            </span>
+            <div class="buttons">
+              <button :class="{ 'done': todo.Status === 'done' }" @click="updateStatus(todo)">
+                ✔️
+              </button>
+              <button class="delete-button" @click="deleteTodo(todo.ID)">🗑️</button>
+            </div>
+          </div>
+        </div>
+        <div v-else>
+          <p>進行中のタスクがありません。</p>
+        </div>
+      </div>
+
+      <div class="todo-column">
+        <h2>Done Tasks</h2>
+        <div v-if="doneTodos.length > 0">
+          <div v-for="todo in doneTodos" :key="todo.ID" class="todo-item">
+            <span class="done-task">{{ todo.Task }}</span>
+            <div class="buttons">
+              <button :class="{ 'done': todo.Status === 'done' }" @click="updateStatus(todo)">
+                ✔️
+              </button>
+              <button class="delete-button" @click="deleteTodo(todo.ID)">🗑️</button>
+            </div>
+          </div>
+        </div>
+        <div v-else>
+          <p>完了したタスクがありません。</p>
         </div>
       </div>
     </div>
-    <div v-else>
-      <p>タスクがありません。</p>
-    </div>
   </div>
 </template>
-
 <script>
 export default {
   data() {
     return {
       newTask: '',
+      newTaskPriority: 'low', // Priority for new tasks
       todos: [],
       statusMessage: '',
+      searchTask: '',
+      searchStatus: '', // Search filters
     };
   },
+  computed: {
+    ongoingTodos() {
+      return this.todos.filter(todo => todo.Status !== 'done');
+    },
+    doneTodos() {
+      return this.todos.filter(todo => todo.Status === 'done');
+    }
+  },
   mounted() {
-    this.fetchTodos();
+    this.searchTodos();
   },
   methods: {
     async fetchTodos() {
       try {
-        const response = await fetch(`/api/v1/todos`, {
-        });
+        const response = await fetch(`/api/v1/todos`);
         if (!response.ok) throw new Error(`Failed to get todo list. statusCode: ${response.status}`);
-        response.json().then(data => {
-          this.todos = data.data;
-        });
+        const data = await response.json();
+        this.todos = data.data;
       } catch (error) {
         console.error(error);
         this.statusMessage = 'タスクの取得に失敗しました';
@@ -64,20 +118,34 @@ export default {
           },
           body: JSON.stringify({
             task: this.newTask,
+            priority: this.newTaskPriority, // Include priority
             Status: 'created'
           })
         });
 
         if (!response.ok) throw new Error(`Failed to create todo. statusCode: ${response.status}`);
 
-        response.json().then(data => {
-          this.todos.push(data.data);
-          this.newTask = '';
-          this.statusMessage = 'タスクが追加されました';
-        });
+        const data = await response.json();
+        this.todos.push(data.data);
+        this.newTask = '';
+        this.newTaskPriority = 'low'; // Reset priority
+        this.statusMessage = 'タスクが追加されました';
       } catch (error) {
         console.error('Error creating todo:', error);
         this.statusMessage = 'タスクの作成に失敗しました';
+      }
+    },
+    async searchTodos() {
+      try {
+        // Fetch todos with search filters (task and status)
+        const response = await fetch(`/api/v1/todos?task=${this.searchTask}&status=${this.searchStatus}&sortBy=priority`);
+        if (!response.ok) throw new Error(`Failed to get todo list. statusCode: ${response.status}`);
+
+        const data = await response.json();
+        this.todos = data.data;
+      } catch (error) {
+        console.error('Error fetching todos:', error);
+        this.statusMessage = 'タスクの取得に失敗しました';
       }
     },
     enableEdit(todo) {
@@ -98,7 +166,6 @@ export default {
         });
 
         if (!response.ok) throw new Error(`Failed to edit todo. statusCode: ${response.status}`);
-
         this.statusMessage = 'タスクが編集されました';
       } catch (error) {
         console.error('Error editing todo:', error);
@@ -135,7 +202,7 @@ export default {
           },
         });
 
-        if (!response.ok) throw new Error(`Failed to update todo Status. statusCode: ${response.status}`);
+        if (!response.ok) throw new Error(`Failed to delete todo. statusCode: ${response.status}`);
 
         this.todos = this.todos.filter(todo => todo.ID !== id);
         this.statusMessage = 'タスクが削除されました';
@@ -149,6 +216,8 @@ export default {
 </script>
 
 <style scoped>
+/* Add relevant styles */
+</style><style scoped>
 .todo-main {
   max-width: 400px;
   margin: 20px auto;
@@ -228,5 +297,22 @@ button {
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
+}
+.todo-columns {
+  display: flex;
+  justify-content: space-between;
+}
+
+.todo-column {
+  flex: 1;
+  margin-right: 20px; /* Add spacing between columns */
+}
+
+.todo-column:last-child {
+  margin-right: 0; /* Remove margin for the last column */
+}
+
+.todo-column h2 {
+  margin-top: 0;
 }
 </style>
