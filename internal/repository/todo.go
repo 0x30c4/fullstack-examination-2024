@@ -79,7 +79,7 @@ func (td *todo) FindAll(task, status, sortBy string) ([]*model.Todo, error) {
 
 	// Sorting by priority if the sortBy parameter is provided
 	if sortBy == "priority" {
-		query = query.Order("FIELD(priority, 'low', 'medium', 'high')")
+		query = query.Order("CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END")
 	}
 
 	err := query.Find(&todos).Error
