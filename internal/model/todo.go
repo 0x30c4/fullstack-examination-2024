@@ -15,9 +15,9 @@ type Todo struct {
 // NewTodo returns a new instance of the todo model.
 func NewTodo(task string, priority Priority) *Todo {
 	return &Todo{
-		Task:   task,
-    Priority: priority,
-		Status: Created,
+		Task:     task,
+		Priority: priority,
+		Status:   Created,
 	}
 }
 
